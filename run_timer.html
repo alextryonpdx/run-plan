@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Splits — Run Timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #10141a;
+    --surface: #1a2029;
+    --surface-2: #232b36;
+    --line: #2c3543;
+    --jog: #c8ff4d;
+    --jog-dim: #7c9b3a;
+    --walk: #5aa9e6;
+    --walk-dim: #3d6c8f;
+    --text: #f2f4ef;
+    --muted: #7b8494;
+    --done: #ff6b5e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    overscroll-behavior:none;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  .app{
+    width:100%;
+    max-width:480px;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+  }
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--muted);
+    font-weight:600;
+  }
+  h1{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:40px;
+    letter-spacing:.02em;
+    margin:2px 0 20px;
+    line-height:1;
+  }
+  h1 span{color:var(--jog);}
+
+  /* ---- Setup screen ---- */
+  .setup{display:flex; flex-direction:column; gap:22px;}
+  .field-label{font-size:13px; font-weight:600; color:var(--muted); margin-bottom:10px;}
+  .week-scroll{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:4px;
+    scrollbar-width:none;
+  }
+  .week-scroll::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto;
+    padding:10px 16px;
+    border-radius:10px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .chip.active{
+    background:var(--jog);
+    border-color:var(--jog);
+    color:#10140a;
+  }
+  .day-grid{display:flex; gap:8px;}
+  .day-card{
+    flex:1;
+    padding:14px 10px;
+    border-radius:12px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    text-align:left;
+    cursor:pointer;
+  }
+  .day-card.active{border-color:var(--jog); background:var(--surface-2);}
+  .day-card .dname{font-weight:700; font-size:14px;}
+  .day-card .dtag{
+    font-size:11px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    margin-top:2px;
+  }
+  .day-card.active .dtag{color:var(--jog);}
+
+  .preview{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px;
+  }
+  .preview-title{font-size:13px; font-weight:600; color:var(--muted); margin-bottom:12px;}
+  .segs{display:flex; gap:4px; flex-wrap:wrap;}
+  .seg{
+    flex:1 1 auto;
+    min-width:44px;
+    text-align:center;
+    padding:8px 4px;
+    border-radius:8px;
+    font-size:12px;
+    font-weight:700;
+  }
+  .seg.jog{background:rgba(200,255,77,.14); color:var(--jog);}
+  .seg.walk{background:rgba(90,169,230,.14); color:var(--walk);}
+  .preview-total{margin-top:12px; font-size:12px; color:var(--muted);}
+
+  .start-btn{
+    margin-top:auto;
+    padding:18px;
+    border:none;
+    border-radius:14px;
+    background:var(--jog);
+    color:#10140a;
+    font-family:'Bebas Neue', sans-serif;
+    font-size:22px;
+    letter-spacing:.04em;
+    cursor:pointer;
+  }
+  .start-btn:active{transform:scale(.98);}
+
+  /* ---- Timer screen ---- */
+  .timer-view{display:none; flex-direction:column; flex:1;}
+  .timer-view.active{display:flex;}
+  .back{
+    background:none; border:none; color:var(--muted);
+    font-size:14px; font-weight:600; padding:0 0 16px; text-align:left; cursor:pointer;
+    width:fit-content;
+  }
+  .ring-wrap{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin: 10px auto 24px;
+    width:100%;
+    max-width:320px;
+  }
+  svg{width:100%; height:auto; transform:rotate(-90deg);}
+  .ring-track{fill:none; stroke:var(--surface-2); stroke-width:14;}
+  .ring-fill{fill:none; stroke-width:14; stroke-linecap:round; transition:stroke-dashoffset .3s linear, stroke .3s;}
+  .ring-center{
+    position:absolute;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .phase-label{
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .phase-label.jog{color:var(--jog);}
+  .phase-label.walk{color:var(--walk);}
+  .phase-label.done{color:var(--done);}
+  .time-readout{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:64px;
+    line-height:1;
+    letter-spacing:.02em;
+  }
+  .round-count{font-size:12px; color:var(--muted); margin-top:8px;}
+
+  .next-up{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 16px;
+    margin-bottom:16px;
+    font-size:13px;
+  }
+  .next-up .label{color:var(--muted);}
+  .next-up .val{font-weight:700;}
+  .next-up .val.jog{color:var(--jog);}
+  .next-up .val.walk{color:var(--walk);}
+
+  .controls{
+    display:flex;
+    gap:10px;
+    margin-top:auto;
+  }
+  .ctrl-btn{
+    flex:1;
+    padding:16px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--text);
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+  }
+  .ctrl-btn.primary{
+    background:var(--jog);
+    border-color:var(--jog);
+    color:#10140a;
+    flex:2;
+  }
+  .ctrl-btn:active{transform:scale(.98);}
+
+  .finish-screen{display:none; flex:1; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px;}
+  .finish-screen.active{display:flex;}
+  .finish-screen .big{font-family:'Bebas Neue', sans-serif; font-size:46px; color:var(--jog);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SETUP SCREEN -->
+  <div id="setup" class="setup">
+    <div>
+      <div class="eyebrow">Run Plan</div>
+      <h1>210→160 <span>Splits</span></h1>
+    </div>
+
+    <div>
+      <div class="field-label">Week</div>
+      <div class="week-scroll" id="weekScroll"></div>
+    </div>
+
+    <div>
+      <div class="field-label">Day</div>
+      <div class="day-grid" id="dayGrid"></div>
+    </div>
+
+    <div class="preview">
+      <div class="preview-title">Today's intervals</div>
+      <div class="segs" id="segPreview"></div>
+      <div class="preview-total" id="totalPreview"></div>
+    </div>
+
+    <button class="start-btn" id="startBtn">Start Run</button>
+  </div>
+
+  <!-- TIMER SCREEN -->
+  <div id="timerView" class="timer-view">
+    <button class="back" id="backBtn">‹ Change day</button>
+
+    <div class="next-up">
+      <span class="label">Up next</span>
+      <span class="val" id="nextVal">—</span>
+    </div>
+
+    <div class="ring-wrap">
+      <svg viewBox="0 0 240 240">
+        <circle class="ring-track" cx="120" cy="120" r="104"></circle>
+        <circle class="ring-fill" id="ringFill" cx="120" cy="120" r="104"></circle>
+      </svg>
+      <div class="ring-center">
+        <div class="phase-label" id="phaseLabel">READY</div>
+        <div class="time-readout" id="timeReadout">00:00</div>
+        <div class="round-count" id="roundCount"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl-btn" id="resetBtn">Reset</button>
+      <button class="ctrl-btn primary" id="playPauseBtn">Start</button>
+    </div>
+  </div>
+
+  <!-- FINISH SCREEN -->
+  <div id="finishView" class="finish-screen">
+    <div class="eyebrow">Run complete</div>
+    <div class="big" id="finishSummary">Nice work</div>
+    <button class="start-btn" id="doneBtn" style="margin-top:20px; max-width:220px;">Back to plan</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  // ---------- Schedule generation ----------
+  function repeatSeg(rounds, jogMin, walkMin){
+    const arr = [];
+    for(let i=0;i<rounds;i++){
+      arr.push({type:'jog', min:jogMin});
+      arr.push({type:'walk', min:walkMin});
+    }
+    return arr;
+  }
+
+  function getSegments(week, day){
+    const hard = (day === 1 || day === 3);
+    if(week <= 2) return repeatSeg(4, 5, 1);
+    if(week === 3) return hard ? repeatSeg(4,7,1) : repeatSeg(4,5,1);
+    if(week === 4) return hard ? repeatSeg(4,8,1) : repeatSeg(4,6,1);
+    if(week === 5) return hard ? repeatSeg(3,10,1) : repeatSeg(3,7,1);
+    if(week === 6) return hard ? repeatSeg(2,12,1) : repeatSeg(3,8,1);
+    if(week === 7) return hard ? repeatSeg(2,15,1) : repeatSeg(2,10,1);
+    if(week === 8){
+      if(day === 2) return repeatSeg(2,12,1);
+      return [{type:'jog',min:20},{type:'walk',min:1},{type:'jog',min:10}];
+    }
+    if(week >= 9 && week <= 12){
+      const jogMins = {9:25,10:28,11:30,12:35};
+      const easyMins = {9:15,10:16,11:18,12:20};
+      if(day === 2) return [{type:'jog', min: easyMins[week]}];
+      return [{type:'jog', min: jogMins[week]}];
+    }
+    return repeatSeg(4,5,1);
+  }
+
+  function phaseName(week){
+    if(week<=2) return 'Confirm baseline';
+    if(week<=5) return 'Extend jog intervals';
+    if(week<=8) return 'Shrink the walk breaks';
+    return 'Continuous running';
+  }
+
+  const dayMeta = {
+    1: {name:'Day 1', tag:'Push'},
+    2: {name:'Day 2', tag:'Easy'},
+    3: {name:'Day 3', tag:'Push'}
+  };
+
+  // ---------- State ----------
+  let state = { week: 1, day: 1 };
+  let segments = [];
+  let segIndex = 0;
+  let secondsLeft = 0;
+  let running = false;
+  let timerHandle = null;
+
+  const RADIUS = 104;
+  const CIRC = 2 * Math.PI * RADIUS;
+
+  // ---------- Setup screen render ----------
+  const weekScroll = document.getElementById('weekScroll');
+  const dayGrid = document.getElementById('dayGrid');
+  const segPreview = document.getElementById('segPreview');
+  const totalPreview = document.getElementById('totalPreview');
+
+  for(let w=1; w<=12; w++){
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (w===state.week ? ' active':'');
+    chip.textContent = 'Wk ' + w;
+    chip.dataset.week = w;
+    chip.addEventListener('click', () => { state.week = w; renderSetup(); });
+    weekScroll.appendChild(chip);
+  }
+
+  [1,2,3].forEach(d => {
+    const card = document.createElement('div');
+    card.className = 'day-card' + (d===state.day ? ' active':'');
+    card.innerHTML = `<div class="dname">${dayMeta[d].name}</div><div class="dtag">${dayMeta[d].tag}</div>`;
+    card.addEventListener('click', () => { state.day = d; renderSetup(); });
+    dayGrid.appendChild(card);
+  });
+
+  function renderSetup(){
+    [...weekScroll.children].forEach(c => c.classList.toggle('active', Number(c.dataset.week) === state.week));
+    [...dayGrid.children].forEach((c,i) => c.classList.toggle('active', (i+1) === state.day));
+
+    segments = getSegments(state.week, state.day);
+    segPreview.innerHTML = '';
+    let totalMin = 0;
+    segments.forEach(s => {
+      totalMin += s.min;
+      const el = document.createElement('div');
+      el.className = 'seg ' + s.type;
+      el.textContent = s.type === 'jog' ? s.min+'m jog' : s.min+'m walk';
+      segPreview.appendChild(el);
+    });
+    totalPreview.textContent = phaseName(state.week) + ' · ~' + totalMin + ' min total';
+  }
+  renderSetup();
+
+  // ---------- Screen switching ----------
+  const setupEl = document.getElementById('setup');
+  const timerViewEl = document.getElementById('timerView');
+  const finishViewEl = document.getElementById('finishView');
+
+  document.getElementById('startBtn').addEventListener('click', () => {
+    setupEl.style.display = 'none';
+    finishViewEl.classList.remove('active');
+    timerViewEl.classList.add('active');
+    resetRun();
+  });
+
+  document.getElementById('backBtn').addEventListener('click', () => {
+    pauseRun();
+    timerViewEl.classList.remove('active');
+    setupEl.style.display = 'flex';
+  });
+
+  document.getElementById('doneBtn').addEventListener('click', () => {
+    finishViewEl.classList.remove('active');
+    setupEl.style.display = 'flex';
+  });
+
+  // ---------- Timer logic ----------
+  const phaseLabel = document.getElementById('phaseLabel');
+  const timeReadout = document.getElementById('timeReadout');
+  const roundCount = document.getElementById('roundCount');
+  const ringFill = document.getElementById('ringFill');
+  const nextVal = document.getElementById('nextVal');
+  const playPauseBtn = document.getElementById('playPauseBtn');
+
+  ringFill.style.strokeDasharray = CIRC;
+
+  function fmt(sec){
+    const m = Math.floor(sec/60).toString().padStart(2,'0');
+    const s = Math.floor(sec%60).toString().padStart(2,'0');
+    return m+':'+s;
+  }
+
+  function totalJogRounds(){
+    return segments.filter(s=>s.type==='jog').length;
+  }
+  function currentJogRoundNumber(){
+    let n = 0;
+    for(let i=0;i<=segIndex;i++){ if(segments[i].type==='jog') n++; }
+    return n;
+  }
+
+  function resetRun(){
+    pauseRun();
+    segIndex = 0;
+    secondsLeft = segments[0].min * 60;
+    updateDisplay();
+    playPauseBtn.textContent = 'Start';
+  }
+  document.getElementById('resetBtn').addEventListener('click', resetRun);
+
+  function updateDisplay(){
+    const seg = segments[segIndex];
+    const total = seg.min * 60;
+    const progress = 1 - (secondsLeft / total);
+    ringFill.style.strokeDashoffset = CIRC * (1 - progress);
+    ringFill.style.stroke = seg.type === 'jog' ? getCSS('--jog') : getCSS('--walk');
+    phaseLabel.textContent = seg.type === 'jog' ? 'JOG' : 'WALK';
+    phaseLabel.className = 'phase-label ' + seg.type;
+    timeReadout.textContent = fmt(secondsLeft);
+
+    if(seg.type === 'jog'){
+      roundCount.textContent = 'Jog interval ' + currentJogRoundNumber() + ' of ' + totalJogRounds();
+    } else {
+      roundCount.textContent = 'Recovery walk';
+    }
+
+    const next = segments[segIndex+1];
+    if(next){
+      nextVal.textContent = (next.type==='jog'?'Jog':'Walk') + ' · ' + next.min + ' min';
+      nextVal.className = 'val ' + next.type;
+    } else {
+      nextVal.textContent = 'Finish';
+      nextVal.className = 'val';
+    }
+  }
+
+  function getCSS(varName){
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+
+  function beep(freq, dur){
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+      osc.start();
+      osc.stop(ctx.currentTime + dur);
+    }catch(e){}
+  }
+
+  function tick(){
+    secondsLeft -= 1;
+    if(secondsLeft <= 3 && secondsLeft > 0){
+      beep(660, 0.12);
+    }
+    if(secondsLeft <= 0){
+      segIndex += 1;
+      if(segIndex >= segments.length){
+        finishRun();
+        return;
+      }
+      beep(880, 0.25);
+      if(navigator.vibrate) navigator.vibrate(200);
+      secondsLeft = segments[segIndex].min * 60;
+    }
+    updateDisplay();
+  }
+
+  function playRun(){
+    if(running) return;
+    running = true;
+    playPauseBtn.textContent = 'Pause';
+    timerHandle = setInterval(tick, 1000);
+  }
+  function pauseRun(){
+    running = false;
+    playPauseBtn.textContent = 'Start';
+    if(timerHandle) clearInterval(timerHandle);
+  }
+  playPauseBtn.addEventListener('click', () => {
+    if(running) pauseRun(); else playRun();
+  });
+
+  function finishRun(){
+    pauseRun();
+    beep(440, 0.4);
+    if(navigator.vibrate) navigator.vibrate([200,100,200]);
+    document.getElementById('finishSummary').textContent =
+      dayMeta[state.day].name + ' · Week ' + state.week + ' done';
+    timerViewEl.classList.remove('active');
+    finishViewEl.classList.add('active');
+  }
+
+})();
+</script>
+</body>
+</html>
