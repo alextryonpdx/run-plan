@@ -185,6 +185,12 @@
   }
   .round-count{font-size:12px; color:var(--muted); margin-top:8px;}
 
+  .wake-note{
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.5;
+    margin-bottom:16px;
+  }
   .next-up{
     display:flex;
     justify-content:space-between;
@@ -262,6 +268,7 @@
   <!-- TIMER SCREEN -->
   <div id="timerView" class="timer-view">
     <button class="back" id="backBtn">‹ Change day</button>
+    <div class="wake-note">Keep your screen face-up during the run — it'll stay awake automatically for audio cues.</div>
 
     <div class="next-up">
       <span class="label">Up next</span>
@@ -497,6 +504,11 @@
 
   function tick(){
     secondsLeft -= 1;
+    if(secondsLeft === 30){
+      beep(520, 0.15);
+      setTimeout(() => beep(520, 0.15), 220);
+      if(navigator.vibrate) navigator.vibrate([80,60,80]);
+    }
     if(secondsLeft <= 3 && secondsLeft > 0){
       beep(660, 0.12);
     }
@@ -513,16 +525,37 @@
     updateDisplay();
   }
 
+  let wakeLock = null;
+  async function requestWakeLock(){
+    try{
+      if('wakeLock' in navigator){
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      }
+    }catch(e){ /* wake lock not available or denied — timer still runs while screen is on */ }
+  }
+  function releaseWakeLock(){
+    if(wakeLock){ wakeLock.release(); wakeLock = null; }
+  }
+  // Re-acquire the lock if the tab regains visibility mid-run (iOS drops it on any backgrounding)
+  document.addEventListener('visibilitychange', () => {
+    if(running && document.visibilityState === 'visible' && !wakeLock){
+      requestWakeLock();
+    }
+  });
+
   function playRun(){
     if(running) return;
     running = true;
     playPauseBtn.textContent = 'Pause';
     timerHandle = setInterval(tick, 1000);
+    requestWakeLock();
   }
   function pauseRun(){
     running = false;
     playPauseBtn.textContent = 'Start';
     if(timerHandle) clearInterval(timerHandle);
+    releaseWakeLock();
   }
   playPauseBtn.addEventListener('click', () => {
     if(running) pauseRun(); else playRun();
@@ -530,6 +563,7 @@
 
   function finishRun(){
     pauseRun();
+    releaseWakeLock();
     beep(440, 0.4);
     if(navigator.vibrate) navigator.vibrate([200,100,200]);
     document.getElementById('finishSummary').textContent =
