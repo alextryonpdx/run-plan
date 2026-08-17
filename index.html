@@ -216,6 +216,34 @@
   }
   .audio-status.ready{color:var(--jog);}
   .audio-status.ready .dot{background:var(--jog);}
+
+  .mode-toggle{
+    display:flex;
+    gap:6px;
+    margin-bottom:10px;
+  }
+  .mode-btn{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+    padding:8px 6px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    color:var(--muted);
+    cursor:pointer;
+    font-family:'Inter', sans-serif;
+  }
+  .mode-btn .mname{font-size:13px; font-weight:700;}
+  .mode-btn .mdesc{font-size:10px; font-weight:500; opacity:.8;}
+  .mode-btn.active{
+    border-color:var(--walk);
+    background:rgba(90,169,230,.12);
+    color:var(--walk);
+  }
+
   .next-up{
     display:flex;
     justify-content:space-between;
@@ -299,6 +327,17 @@
       <span class="dot" id="audioDot"></span>
       <span id="audioText">Tap to enable audio</span>
     </button>
+
+    <div class="mode-toggle" id="modeToggle">
+      <button class="mode-btn active" data-mode="beeps" id="modeBeepsBtn">
+        <span class="mname">Beeps</span>
+        <span class="mdesc">30s warning</span>
+      </button>
+      <button class="mode-btn" data-mode="voice" id="modeVoiceBtn">
+        <span class="mname">Voice</span>
+        <span class="mdesc">2 min warning + call-outs</span>
+      </button>
+    </div>
 
     <div class="next-up">
       <span class="label">Up next</span>
@@ -521,6 +560,24 @@
   let audioCtx = null;
   let audioUnlocked = false;
 
+  let audioMode = 'beeps'; // 'beeps' | 'voice'
+  const modeBeepsBtn = document.getElementById('modeBeepsBtn');
+  const modeVoiceBtn = document.getElementById('modeVoiceBtn');
+
+  function setAudioMode(mode){
+    audioMode = mode;
+    modeBeepsBtn.classList.toggle('active', mode === 'beeps');
+    modeVoiceBtn.classList.toggle('active', mode === 'voice');
+  }
+  modeBeepsBtn.addEventListener('click', () => { unlockAudio(false); setAudioMode('beeps'); });
+  modeVoiceBtn.addEventListener('click', () => { unlockAudio(false); setAudioMode('voice'); });
+
+  function segmentAnnouncement(seg){
+    const pace = seg.type === 'jog' ? 'Jog' : 'Walk';
+    const mins = seg.min === 1 ? '1 minute' : seg.min + ' minutes';
+    return pace + ' for ' + mins;
+  }
+
   const audioStatusBtn = document.getElementById('audioStatus');
   const audioText = document.getElementById('audioText');
 
@@ -590,30 +647,45 @@
   function tick(){
     secondsLeft -= 1;
     const currentTotal = segments[segIndex].min * 60;
-    const halfMark = Math.floor(currentTotal / 2);
-    if(segments[segIndex].type === 'jog' && secondsLeft === halfMark && secondsLeft > 3){
-      speak('Halfway there');
-      if(navigator.vibrate) navigator.vibrate(100);
+
+    if(audioMode === 'beeps'){
+      if(secondsLeft === 30){
+        beep(520, 0.15);
+        setTimeout(() => beep(520, 0.15), 220);
+        if(navigator.vibrate) navigator.vibrate([80,60,80]);
+      }
+      if(secondsLeft <= 3 && secondsLeft > 0){
+        beep(660, 0.12);
+      }
+    } else { // voice mode
+      // Only warn at 2 minutes if the segment is long enough that it doesn't
+      // collide with the "start of segment" announcement moments earlier.
+      if(secondsLeft === 120 && currentTotal - 120 > 15){
+        speak('Two minutes left');
+        if(navigator.vibrate) navigator.vibrate(100);
+      }
     }
-    if(secondsLeft === 30){
-      beep(520, 0.15);
-      setTimeout(() => beep(520, 0.15), 220);
-      if(navigator.vibrate) navigator.vibrate([80,60,80]);
-    }
-    if(secondsLeft <= 3 && secondsLeft > 0){
-      beep(660, 0.12);
-    }
+
     if(secondsLeft <= 0){
       segIndex += 1;
       if(segIndex >= segments.length){
         finishRun();
         return;
       }
-      beep(880, 0.25);
-      if(navigator.vibrate) navigator.vibrate(200);
+      announceSegment(segments[segIndex]);
       secondsLeft = segments[segIndex].min * 60;
     }
     updateDisplay();
+  }
+
+  function announceSegment(seg){
+    if(audioMode === 'beeps'){
+      beep(880, 0.25);
+      if(navigator.vibrate) navigator.vibrate(200);
+    } else {
+      speak(segmentAnnouncement(seg));
+      if(navigator.vibrate) navigator.vibrate(150);
+    }
   }
 
   let wakeLock = null;
@@ -643,6 +715,10 @@
     if(running) return;
     running = true;
     playPauseBtn.textContent = 'Pause';
+    const isFreshStart = (secondsLeft === segments[segIndex].min * 60);
+    if(isFreshStart){
+      announceSegment(segments[segIndex]);
+    }
     timerHandle = setInterval(tick, 1000);
     requestWakeLock();
   }
