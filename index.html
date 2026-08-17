@@ -92,6 +92,7 @@
   }
   .day-grid{display:flex; gap:8px;}
   .day-card{
+    position:relative;
     flex:1;
     padding:14px 10px;
     border-radius:12px;
@@ -110,6 +111,62 @@
     margin-top:2px;
   }
   .day-card.active .dtag{color:var(--jog);}
+  .day-card .check{
+    position:absolute;
+    top:8px;
+    right:8px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:var(--jog);
+    color:#10140a;
+    font-size:11px;
+    font-weight:900;
+    display:none;
+    align-items:center;
+    justify-content:center;
+  }
+  .day-card.done .check{display:flex;}
+  .day-card.done{border-color:rgba(200,255,77,.35);}
+  .day-card .ddate{
+    font-size:10px;
+    color:var(--jog);
+    font-weight:600;
+    margin-top:4px;
+    display:none;
+  }
+  .day-card.done .ddate{display:block;}
+
+  .chip{position:relative;}
+  .chip .weekdot{
+    position:absolute;
+    top:4px;
+    right:6px;
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:var(--jog);
+    display:none;
+  }
+  .chip.week-done .weekdot{display:block;}
+
+  .progress-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:12px;
+    color:var(--muted);
+    margin-top:-8px;
+  }
+  .reset-link{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:0;
+  }
 
   .preview{
     background:var(--surface);
@@ -118,15 +175,17 @@
     padding:16px;
   }
   .preview-title{font-size:13px; font-weight:600; color:var(--muted); margin-bottom:12px;}
-  .segs{display:flex; gap:4px; flex-wrap:wrap;}
+  .segs{display:flex; flex-direction:column; gap:6px;}
+  .seg-row{display:flex; gap:4px; width:100%;}
   .seg{
-    flex:1 1 auto;
-    min-width:44px;
     text-align:center;
     padding:8px 4px;
     border-radius:8px;
     font-size:12px;
     font-weight:700;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .seg.jog{background:rgba(200,255,77,.14); color:var(--jog);}
   .seg.walk{background:rgba(90,169,230,.14); color:var(--walk);}
@@ -314,6 +373,11 @@
       <div class="day-grid" id="dayGrid"></div>
     </div>
 
+    <div class="progress-row">
+      <span id="progressSummary">0 of 60 runs complete</span>
+      <button class="reset-link" id="resetProgressBtn">Reset progress</button>
+    </div>
+
     <div class="preview">
       <div class="preview-title">Today's intervals</div>
       <div class="segs" id="segPreview"></div>
@@ -379,6 +443,12 @@
 <script>
 (function(){
   // ---------- Schedule generation ----------
+  // 20-week program: warmup weeks kept at their original 1-week length,
+  // baseline kept at its original 2 weeks, doubled-length progression for
+  // everything else (each former 1-week "step" now spans 2 weeks), plus an
+  // unchanged 4-week continuous-running block at the end.
+  const TOTAL_WEEKS = 20;
+
   function repeatSeg(rounds, jogMin, walkMin){
     const arr = [];
     for(let i=0;i<rounds;i++){
@@ -390,19 +460,21 @@
 
   function getSegments(week, day){
     const hard = (day === 1 || day === 3);
-    if(week <= 2) return repeatSeg(4, 5, 1);
-    if(week === 3) return hard ? repeatSeg(4,7,1) : repeatSeg(4,5,1);
-    if(week === 4) return hard ? repeatSeg(4,8,1) : repeatSeg(4,6,1);
-    if(week === 5) return hard ? repeatSeg(3,10,1) : repeatSeg(3,7,1);
-    if(week === 6) return hard ? repeatSeg(2,12,1) : repeatSeg(3,8,1);
-    if(week === 7) return hard ? repeatSeg(2,15,1) : repeatSeg(2,10,1);
-    if(week === 8){
+    if(week === 1) return repeatSeg(4, 3, 1);                    // Warmup A: week 1
+    if(week === 2) return repeatSeg(4, 4, 1);                    // Warmup B: week 2
+    if(week <= 4) return repeatSeg(4, 5, 1);                     // Baseline: weeks 3–4
+    if(week <= 6) return hard ? repeatSeg(4,7,1) : repeatSeg(4,5,1);    // weeks 5–6
+    if(week <= 8) return hard ? repeatSeg(4,8,1) : repeatSeg(4,6,1);    // weeks 7–8
+    if(week <= 10) return hard ? repeatSeg(3,10,1) : repeatSeg(3,7,1); // weeks 9–10
+    if(week <= 12) return hard ? repeatSeg(2,12,1) : repeatSeg(3,8,1); // weeks 11–12
+    if(week <= 14) return hard ? repeatSeg(2,15,1) : repeatSeg(2,10,1);// weeks 13–14
+    if(week <= 16){                                              // weeks 15–16 (transition)
       if(day === 2) return repeatSeg(2,12,1);
       return [{type:'jog',min:20},{type:'walk',min:1},{type:'jog',min:10}];
     }
-    if(week >= 9 && week <= 12){
-      const jogMins = {9:25,10:28,11:30,12:35};
-      const easyMins = {9:15,10:16,11:18,12:20};
+    if(week <= 20){                                              // Continuous: weeks 17–20
+      const jogMins  = {17:25, 18:28, 19:30, 20:35};
+      const easyMins = {17:15, 18:16, 19:18, 20:20};
       if(day === 2) return [{type:'jog', min: easyMins[week]}];
       return [{type:'jog', min: jogMins[week]}];
     }
@@ -410,9 +482,10 @@
   }
 
   function phaseName(week){
-    if(week<=2) return 'Confirm baseline';
-    if(week<=5) return 'Extend jog intervals';
-    if(week<=8) return 'Shrink the walk breaks';
+    if(week<=2) return 'Warmup';
+    if(week<=4) return 'Confirm baseline';
+    if(week<=10) return 'Extend jog intervals';
+    if(week<=16) return 'Shrink the walk breaks';
     return 'Continuous running';
   }
 
@@ -421,6 +494,52 @@
     2: {name:'Day 2', tag:'Easy'},
     3: {name:'Day 3', tag:'Push'}
   };
+
+  // ---------- Progress persistence (localStorage) ----------
+  // Key format: "w{week}d{day}" -> ISO timestamp string of completion.
+  // 12 weeks x 3 days = 36 total sessions tracked.
+  const PROGRESS_KEY = 'getmoving_progress_v1';
+  let storageAvailable = true;
+
+  function loadProgress(){
+    try{
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){
+      storageAvailable = false;
+      return {};
+    }
+  }
+  function saveProgress(progress){
+    try{
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+    }catch(e){
+      storageAvailable = false;
+    }
+  }
+  function markComplete(week, day){
+    const progress = loadProgress();
+    progress['w' + week + 'd' + day] = new Date().toISOString();
+    saveProgress(progress);
+  }
+  function isComplete(week, day){
+    const progress = loadProgress();
+    return !!progress['w' + week + 'd' + day];
+  }
+  function getCompletionDate(week, day){
+    const progress = loadProgress();
+    const iso = progress['w' + week + 'd' + day];
+    if(!iso) return null;
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return null;
+    return d.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+  }
+  function weekFullyComplete(week){
+    return [1,2,3].every(d => isComplete(week, d));
+  }
+  function totalCompletedCount(){
+    return Object.keys(loadProgress()).length;
+  }
 
   // ---------- State ----------
   let state = { week: 1, day: 1 };
@@ -439,10 +558,10 @@
   const segPreview = document.getElementById('segPreview');
   const totalPreview = document.getElementById('totalPreview');
 
-  for(let w=1; w<=12; w++){
+  for(let w=1; w<=TOTAL_WEEKS; w++){
     const chip = document.createElement('div');
     chip.className = 'chip' + (w===state.week ? ' active':'');
-    chip.textContent = 'Wk ' + w;
+    chip.innerHTML = 'Wk ' + w + '<span class="weekdot"></span>';
     chip.dataset.week = w;
     chip.addEventListener('click', () => { state.week = w; renderSetup(); });
     weekScroll.appendChild(chip);
@@ -451,25 +570,60 @@
   [1,2,3].forEach(d => {
     const card = document.createElement('div');
     card.className = 'day-card' + (d===state.day ? ' active':'');
-    card.innerHTML = `<div class="dname">${dayMeta[d].name}</div><div class="dtag">${dayMeta[d].tag}</div>`;
+    card.innerHTML = `<div class="check">✓</div><div class="dname">${dayMeta[d].name}</div><div class="dtag">${dayMeta[d].tag}</div><div class="ddate"></div>`;
     card.addEventListener('click', () => { state.day = d; renderSetup(); });
     dayGrid.appendChild(card);
   });
 
+  const progressSummary = document.getElementById('progressSummary');
+  const resetProgressBtn = document.getElementById('resetProgressBtn');
+
+  resetProgressBtn.addEventListener('click', () => {
+    if(confirm('Clear all recorded run completions? This can\'t be undone.')){
+      saveProgress({});
+      renderSetup();
+    }
+  });
+
   function renderSetup(){
-    [...weekScroll.children].forEach(c => c.classList.toggle('active', Number(c.dataset.week) === state.week));
-    [...dayGrid.children].forEach((c,i) => c.classList.toggle('active', (i+1) === state.day));
+    [...weekScroll.children].forEach(c => {
+      const w = Number(c.dataset.week);
+      c.classList.toggle('active', w === state.week);
+      c.classList.toggle('week-done', weekFullyComplete(w));
+    });
+    [...dayGrid.children].forEach((c,i) => {
+      const d = i + 1;
+      const done = isComplete(state.week, d);
+      c.classList.toggle('active', d === state.day);
+      c.classList.toggle('done', done);
+      const dateEl = c.querySelector('.ddate');
+      dateEl.textContent = done ? getCompletionDate(state.week, d) : '';
+    });
+
+    progressSummary.textContent = totalCompletedCount() + ' of ' + (TOTAL_WEEKS * 3) + ' runs complete';
+    if(!storageAvailable){
+      progressSummary.textContent = 'Progress tracking unavailable in this preview';
+    }
 
     segments = getSegments(state.week, state.day);
     segPreview.innerHTML = '';
     let totalMin = 0;
-    segments.forEach(s => {
-      totalMin += s.min;
-      const el = document.createElement('div');
-      el.className = 'seg ' + s.type;
-      el.textContent = s.type === 'jog' ? s.min+'m jog' : s.min+'m walk';
-      segPreview.appendChild(el);
-    });
+
+    for(let i = 0; i < segments.length; i += 2){
+      const row = document.createElement('div');
+      row.className = 'seg-row';
+      const pair = segments.slice(i, i + 2);
+      pair.forEach(s => {
+        totalMin += s.min;
+        const el = document.createElement('div');
+        el.className = 'seg ' + s.type;
+        el.style.flex = s.min; // proportional width within the row, based on duration
+        el.textContent = s.min + 'm ' + s.type;
+        row.appendChild(el);
+      });
+      segPreview.appendChild(row);
+    }
+
     totalPreview.textContent = phaseName(state.week) + ' · ~' + totalMin + ' min total';
   }
   renderSetup();
@@ -491,11 +645,13 @@
     pauseRun();
     timerViewEl.classList.remove('active');
     setupEl.style.display = 'flex';
+    renderSetup();
   });
 
   document.getElementById('doneBtn').addEventListener('click', () => {
     finishViewEl.classList.remove('active');
     setupEl.style.display = 'flex';
+    renderSetup();
   });
 
   // ---------- Timer logic ----------
@@ -741,6 +897,7 @@
   function finishRun(){
     pauseRun();
     releaseWakeLock();
+    markComplete(state.week, state.day);
     beep(440, 0.4);
     if(navigator.vibrate) navigator.vibrate([200,100,200]);
     document.getElementById('finishSummary').textContent =
