@@ -40,7 +40,7 @@
     min-height:100vh;
     display:flex;
     flex-direction:column;
-    padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+    padding: max(14px, env(safe-area-inset-top)) 20px max(14px, env(safe-area-inset-bottom));
   }
   .eyebrow{
     font-size:11px;
@@ -142,11 +142,11 @@
   .start-btn:active{transform:scale(.98);}
 
   /* ---- Timer screen ---- */
-  .timer-view{display:none; flex-direction:column; flex:1;}
+  .timer-view{display:none; flex-direction:column;}
   .timer-view.active{display:flex;}
   .back{
     background:none; border:none; color:var(--muted);
-    font-size:14px; font-weight:600; padding:0 0 16px; text-align:left; cursor:pointer;
+    font-size:14px; font-weight:600; padding:0 0 10px; text-align:left; cursor:pointer;
     width:fit-content;
   }
   .ring-wrap{
@@ -154,9 +154,9 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    margin: 10px auto 24px;
+    margin: 4px auto 16px;
     width:100%;
-    max-width:320px;
+    max-width:280px;
   }
   svg{width:100%; height:auto; transform:rotate(-90deg);}
   .ring-track{fill:none; stroke:var(--surface-2); stroke-width:14;}
@@ -179,18 +179,43 @@
   .phase-label.done{color:var(--done);}
   .time-readout{
     font-family:'Bebas Neue', sans-serif;
-    font-size:64px;
+    font-size:56px;
     line-height:1;
     letter-spacing:.02em;
   }
-  .round-count{font-size:12px; color:var(--muted); margin-top:8px;}
+  .round-count{font-size:12px; color:var(--muted); margin-top:6px;}
 
   .wake-note{
-    font-size:12px;
+    font-size:11px;
     color:var(--muted);
-    line-height:1.5;
-    margin-bottom:16px;
+    line-height:1.4;
+    margin-bottom:10px;
   }
+  .audio-status{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:8px 14px;
+    margin-bottom:10px;
+    cursor:pointer;
+    font-family:'Inter', sans-serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--muted);
+  }
+  .audio-status .dot{
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    background:var(--done);
+    flex:0 0 auto;
+  }
+  .audio-status.ready{color:var(--jog);}
+  .audio-status.ready .dot{background:var(--jog);}
   .next-up{
     display:flex;
     justify-content:space-between;
@@ -199,7 +224,7 @@
     border:1px solid var(--line);
     border-radius:12px;
     padding:12px 16px;
-    margin-bottom:16px;
+    margin-bottom:10px;
     font-size:13px;
   }
   .next-up .label{color:var(--muted);}
@@ -210,7 +235,7 @@
   .controls{
     display:flex;
     gap:10px;
-    margin-top:auto;
+    margin-top:8px;
   }
   .ctrl-btn{
     flex:1;
@@ -269,6 +294,11 @@
   <div id="timerView" class="timer-view">
     <button class="back" id="backBtn">‹ Change day</button>
     <div class="wake-note">Keep your screen face-up during the run — it'll stay awake automatically for audio cues.</div>
+
+    <button class="audio-status" id="audioStatus">
+      <span class="dot" id="audioDot"></span>
+      <span id="audioText">Tap to enable audio</span>
+    </button>
 
     <div class="next-up">
       <span class="label">Up next</span>
@@ -409,6 +439,7 @@
     setupEl.style.display = 'none';
     finishViewEl.classList.remove('active');
     timerViewEl.classList.add('active');
+    unlockAudio(false);
     resetRun();
   });
 
@@ -487,23 +518,83 @@
     return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
   }
 
+  let audioCtx = null;
+  let audioUnlocked = false;
+
+  const audioStatusBtn = document.getElementById('audioStatus');
+  const audioText = document.getElementById('audioText');
+
+  function updateAudioIndicator(){
+    if(audioUnlocked){
+      audioStatusBtn.classList.add('ready');
+      audioText.textContent = 'Audio on — tap to test';
+    } else {
+      audioStatusBtn.classList.remove('ready');
+      audioText.textContent = 'Tap to enable audio';
+    }
+  }
+
+  function unlockAudio(playTest){
+    try{
+      if(!audioCtx){
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if(audioCtx.state === 'suspended'){
+        audioCtx.resume();
+      }
+      audioUnlocked = true;
+    }catch(e){
+      audioUnlocked = false;
+    }
+    updateAudioIndicator();
+    if(playTest){
+      beep(880, 0.15);
+      speak('Audio on');
+    }
+  }
+
+  audioStatusBtn.addEventListener('click', () => unlockAudio(true));
+
   function beep(freq, dur){
     try{
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      if(!audioCtx || audioCtx.state === 'suspended'){
+        // Not yet unlocked by a tap — surface that in the indicator instead of failing silently.
+        audioUnlocked = false;
+        updateAudioIndicator();
+        return;
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
       osc.frequency.value = freq;
       osc.connect(gain);
-      gain.connect(ctx.destination);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+      gain.connect(audioCtx.destination);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
       osc.start();
-      osc.stop(ctx.currentTime + dur);
+      osc.stop(audioCtx.currentTime + dur);
+    }catch(e){}
+  }
+
+  function speak(text){
+    try{
+      if(!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel(); // don't let phrases queue up and stack
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1;
+      utter.pitch = 1;
+      utter.volume = 1;
+      window.speechSynthesis.speak(utter);
     }catch(e){}
   }
 
   function tick(){
     secondsLeft -= 1;
+    const currentTotal = segments[segIndex].min * 60;
+    const halfMark = Math.floor(currentTotal / 2);
+    if(segments[segIndex].type === 'jog' && secondsLeft === halfMark && secondsLeft > 3){
+      speak('Halfway there');
+      if(navigator.vibrate) navigator.vibrate(100);
+    }
     if(secondsLeft === 30){
       beep(520, 0.15);
       setTimeout(() => beep(520, 0.15), 220);
@@ -542,6 +633,10 @@
     if(running && document.visibilityState === 'visible' && !wakeLock){
       requestWakeLock();
     }
+    if(document.visibilityState === 'visible' && audioCtx && audioCtx.state === 'suspended'){
+      audioUnlocked = false;
+      updateAudioIndicator();
+    }
   });
 
   function playRun(){
@@ -558,6 +653,7 @@
     releaseWakeLock();
   }
   playPauseBtn.addEventListener('click', () => {
+    unlockAudio(false);
     if(running) pauseRun(); else playRun();
   });
 
