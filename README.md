@@ -1,6 +1,6 @@
 # Get Moving — Run Timer
 
-A run/walk interval timer for iPhone, built around a 12-week progressive running plan. Runs as a website — no App Store install needed.
+A run/walk interval timer for iPhone, built around the standard 9-week [Couch to 5K](https://c25k.com/c25k_plan/) plan. Runs as a website — no App Store install needed.
 
 ## Setting it up on your iPhone
 
@@ -14,12 +14,11 @@ If you ever change the code and push updates, remove the Home Screen icon and re
 ## Using the app
 
 **1. Pick your week and day.**
-On the setup screen, choose which week (1–20) and which day (Day 1, 2, or 3) of the plan you're running. A preview shows the jog/walk intervals for that session: each jog/walk pair sits on its own row, with the two blocks sized proportionally to their length (so a 10-minute jog next to a 1-minute walk shows as a long block next to a short one), plus the total time for the session.
+On the setup screen, choose which week (1–9) and which day (Day 1, 2, or 3) of the plan you're running. A preview shows the intervals for that session — including the 5-minute warmup and cooldown walks — with each pair of blocks sized proportionally to their length (so a 10-minute jog next to a 1-minute walk shows as a long block next to a short one), plus the total time for the session.
 
-The program runs 20 weeks: two single warmup weeks (3-minute then 4-minute jog intervals), a 2-week baseline, then a progressively harder interval-running build, then a final 4-week block of continuous running.
+The program runs the standard 9-week Couch to 5K progression: short jog/walk intervals in weeks 1–2, longer intervals in weeks 3–4, a jump to sustained jogging in weeks 5–6, then three weeks of continuous running (25, 28, then 30 minutes) to finish.
 
-- Day 1 and Day 3 are the harder sessions.
-- Day 2 is an easier/recovery pace.
+- Days 1–3 are identical each week, except weeks 5 and 6 — there, the three workouts in the week progressively extend the jog time, with Day 3 being the first continuous, walk-free jog.
 
 **2. Enable audio.**
 Before starting, tap the audio status pill (shows "Tap to enable audio"). This is required once per session — iOS blocks sound that isn't triggered by a direct tap. Once it turns green ("Audio on"), you're set. Tap it anytime to replay a test cue.
@@ -34,7 +33,7 @@ You can switch between the two modes at any time, including mid-run.
 The countdown ring shows time remaining in the current interval. The "Up next" card previews what's coming. Reset restarts the current day from the beginning.
 
 **5. Your completed runs are saved automatically.**
-Finishing a run marks that week/day as done — you'll see a green checkmark and the date you completed it on that day card, plus a filled dot on the week tab (once all 3 days in a week are done) the next time you're on the setup screen. A counter at the top shows your overall progress (e.g. "4 of 60 runs complete"). This is stored locally on your phone, tied to this specific app icon — it won't sync across devices, and clearing Safari's site data will erase it. Tap **Reset progress** on the setup screen if you want to clear it and start over.
+Finishing a run marks that week/day as done — you'll see a green checkmark and the date you completed it on that day card, plus a filled dot on the week tab (once all 3 days in a week are done) the next time you're on the setup screen. A counter at the top shows your overall progress (e.g. "4 of 27 runs complete"). This is stored locally on your phone, tied to this specific app icon — it won't sync across devices, and clearing Safari's site data will erase it. Tap **Reset progress** on the setup screen if you want to clear it and start over.
 
 ## A few things to know
 
